@@ -1,0 +1,59 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environments
+.env
+.venv
+env/
+venv/
+ENV/
+
+# Jupyter
+.ipynb_checkpoints
+*/.ipynb_checkpoints/*
+
+# Data & Datasets (Tracked via DVC)
+*.csv
+data/raw/*.csv
+data/processed/*.parquet
+data/processed/*.csv
+
+# MLflow & DVC
+mlruns/
+mlartifacts/
+.dvc/cache
+.dvc/tmp
+
+# Large Model Artifacts & Engines
+artifacts/*.pt
+artifacts/*.engine
+artifacts/*.onnx
+artifacts/student_hf/
+
+# OS Specific
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs & Temporary Data
+*.log
+scratch/

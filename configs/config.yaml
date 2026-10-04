@@ -1,0 +1,46 @@
+# Arabic Sentiment Analysis — Pipeline Configuration
+seed: 42
+
+data:
+  raw_path: "data/raw/reviews.csv"
+  processed_dir: "data/processed"
+  text_column: "text"
+  label_column: "label"
+  labels: ["negative", "neutral", "positive"]
+  max_length: 128
+  train_ratio: 0.80
+  val_ratio: 0.10
+  test_ratio: 0.10
+  use_class_weights: true
+
+teacher:
+  model_name: "aubmindlab/bert-base-arabertv02"
+  epochs: 3
+  learning_rate: 2.0e-5
+  batch_size: 32
+  weight_decay: 0.01
+  warmup_ratio: 0.10
+  mixed_precision: true
+
+student:
+  num_layers: 6
+  layers_from_teacher: [0, 2, 4, 6, 8, 10]
+  epochs: 5
+  learning_rate: 5.0e-5
+  batch_size: 32
+  temperature: 2.0
+  alpha: 0.50
+  weight_decay: 0.01
+  warmup_ratio: 0.10
+
+export:
+  artifacts_dir: "artifacts"
+  onnx_fp32_path: "artifacts/student_fp32.onnx"
+  onnx_int8_path: "artifacts/student_int8.onnx"
+  tensorrt_engine_path: "artifacts/student_fp16.engine"
+  benchmark_results_path: "artifacts/benchmark_results.csv"
+  opset_version: 17
+
+tracking:
+  experiment_name: "arabic-sentiment-distillation"
+  tracking_uri: "mlruns"

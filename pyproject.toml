@@ -1,0 +1,80 @@
+[build-system]
+requires = ["setuptools>=65.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "arabic-sentiment"
+version = "0.1.0"
+description = "Production-Grade Arabic Sentiment Analysis Pipeline with Knowledge Distillation and INT8 ONNX Quantization"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [
+    { name = "MLOps Practitioner", email = "practitioner@example.com" }
+]
+keywords = [
+    "nlp", "arabic", "sentiment-analysis", "mlops",
+    "knowledge-distillation", "quantization", "onnx", "fastapi"
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Intended Audience :: Developers",
+]
+
+dependencies = [
+    "torch>=2.0.0",
+    "transformers>=4.40.0",
+    "onnx>=1.15.0",
+    "onnxruntime>=1.17.0",
+    "pandas>=2.0.0",
+    "numpy>=1.24.0",
+    "scikit-learn>=1.3.0",
+    "pydantic>=2.5.0",
+    "pydantic-settings>=2.1.0",
+    "pyyaml>=6.0",
+    "fastapi>=0.104.0",
+    "uvicorn>=0.24.0",
+    "rich>=13.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-cov>=4.1.0",
+    "ruff>=0.3.0",
+]
+tracking = [
+    "mlflow>=2.11.0",
+    "dvc>=3.48.0",
+]
+serving = [
+    "bentoml>=1.2.0",
+    "locust>=2.24.0",
+]
+monitoring = [
+    "prometheus-client>=0.20.0",
+    "evidently>=0.4.15",
+]
+all = [
+    "arabic-sentiment[dev,tracking,serving,monitoring]",
+]
+
+[project.scripts]
+arabic-sentiment = "arabic_sentiment.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+python_files = ["test_*.py"]
+addopts = "-v --tb=short"
