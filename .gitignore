@@ -60,4 +60,6 @@ desktop.ini
 scratch/
 .coverage
 .coverage.*
+coverage.xml
 htmlcov/
+deploy_*.py
