@@ -30,7 +30,7 @@ print(f"Authenticated with GitHub token: {token[:6]}...")
 headers = {
     "Authorization": f"Bearer {token}",
     "Accept": "application/vnd.github+json",
-    "User-Agent": "ArabicSentiment-MLOps",
+    "User-Agent": "ArabicSentiment-Deployer",
     "Content-Type": "application/json",
 }
 
@@ -46,11 +46,20 @@ def run_cmd(cmd):
         raise RuntimeError(f"Command failed: {cmd}")
     return res.stdout.strip()
 
-# 2. Push initial commit to main on portfolio remote
-print("\n--- Initializing main branch on portfolio remote ---")
-run_cmd("git checkout -B main 31cabdb")
-run_cmd("git push -u portfolio main --force")
-print("Initial commit pushed to portfolio/main.")
+def gh_get(url):
+    req = urllib.request.Request(url, headers=headers)
+    with urllib.request.urlopen(req) as resp:
+        return json.loads(resp.read().decode("utf-8"))
+
+def gh_post(url, data):
+    req = urllib.request.Request(url, data=json.dumps(data).encode("utf-8"), headers=headers, method="POST")
+    with urllib.request.urlopen(req) as resp:
+        return json.loads(resp.read().decode("utf-8"))
+
+def gh_put(url, data):
+    req = urllib.request.Request(url, data=json.dumps(data).encode("utf-8"), headers=headers, method="PUT")
+    with urllib.request.urlopen(req) as resp:
+        return json.loads(resp.read().decode("utf-8"))
 
 # Module Definitions
 modules = [
@@ -122,10 +131,22 @@ for m in modules:
     print(f"  PROCESSING MODULE {m['id']}: {m['title']}")
     print(f"=======================================================")
 
-    # 1. Checkout new branch from current main
-    run_cmd(f"git checkout -B {m['branch']} main")
+    # Check if a PR already exists and is already merged
+    closed_prs = gh_get(f"{api_base}/pulls?head=amrkh2004:{m['branch']}&state=closed")
+    if closed_prs and closed_prs[0].get("merged_at"):
+        print(f"Module {m['id']} PR #{closed_prs[0]['number']} is ALREADY MERGED. Skipping.")
+        run_cmd("git checkout main")
+        run_cmd("git pull portfolio main")
+        continue
 
-    # 2. Checkout paths from backup-perfect-state
+    # 1. Checkout branch from current main
+    branches = run_cmd("git branch --list " + m["branch"])
+    if m["branch"] in branches:
+        run_cmd(f"git checkout {m['branch']}")
+    else:
+        run_cmd(f"git checkout -B {m['branch']} main")
+
+    # 2. Sync files from backup-perfect-state
     for p_path in m["checkout_paths"]:
         run_cmd(f"git checkout backup-perfect-state -- {p_path}")
 
@@ -133,88 +154,131 @@ for m in modules:
         if os.path.exists(r_path):
             run_cmd(f"git rm -f {r_path}")
 
-    # Remove any unwanted runtime artifacts
-    for ignore_item in [".coverage", "mlflow.db"]:
-        run_cmd(f"git rm --cached -f {ignore_item} 2>NUL || rem")
+    # Remove runtime artifacts if any
+    for ignore_item in [".coverage", "mlflow.db", "coverage.xml"]:
+        try:
+            run_cmd(f"git rm --cached -f {ignore_item}")
+        except Exception:
+            pass
 
-    run_cmd("git add -A")
-    run_cmd(f'git commit -m "{m["title"]}"')
+    # Commit if changes exist
+    status = run_cmd("git status --porcelain")
+    if status.strip():
+        run_cmd("git add -A")
+        run_cmd(f'git commit -m "{m["title"]}"')
+    else:
+        print("No new file changes to commit on this branch.")
 
-    # 3. Push branch to portfolio
+    # 3. Push branch to portfolio remote
     run_cmd(f"git push -u portfolio {m['branch']} --force")
     print(f"Branch {m['branch']} pushed to portfolio.")
 
-    # 4. Open PR
-    pr_data = json.dumps({
-        "title": m["title"],
-        "head": m["branch"],
-        "base": "main",
-        "body": m["body"],
-    }).encode("utf-8")
-
-    req_pr = urllib.request.Request(f"{api_base}/pulls", data=pr_data, headers=headers, method="POST")
-    with urllib.request.urlopen(req_pr) as resp:
-        pr_res = json.loads(resp.read().decode("utf-8"))
+    # 4. Check or Create PR
+    open_prs = gh_get(f"{api_base}/pulls?head=amrkh2004:{m['branch']}&state=open")
+    if open_prs:
+        pr_num = open_prs[0]["number"]
+        pr_url = open_prs[0]["html_url"]
+        pr_sha = open_prs[0]["head"]["sha"]
+        print(f"Using open PR #{pr_num}: {pr_url} (SHA: {pr_sha[:7]})")
+    else:
+        pr_res = gh_post(f"{api_base}/pulls", {
+            "title": m["title"],
+            "head": m["branch"],
+            "base": "main",
+            "body": m["body"],
+        })
         pr_num = pr_res["number"]
         pr_url = pr_res["html_url"]
         pr_sha = pr_res["head"]["sha"]
-        print(f"Opened PR #{pr_num}: {pr_url} (SHA: {pr_sha[:7]})")
+        print(f"Opened new PR #{pr_num}: {pr_url} (SHA: {pr_sha[:7]})")
 
-    # 5. Wait for CI Check Runs to complete with success
-    print(f"Waiting for GitHub Actions checks to pass on PR #{pr_num}...")
+    # Give GitHub a moment to register push & trigger workflow
+    time.sleep(10)
+    pr_info = gh_get(f"{api_base}/pulls/{pr_num}")
+    pr_sha = pr_info["head"]["sha"]
+    print(f"Monitoring CI for commit SHA: {pr_sha[:7]}...")
+
+    # 5. Wait for CI checks to complete with success
     start_time = time.time()
     all_passed = False
 
-    while time.time() - start_time < 600:  # 10 min max timeout
-        time.sleep(15)
-        req_checks = urllib.request.Request(f"{api_base}/commits/{pr_sha}/check-runs", headers=headers)
-        with urllib.request.urlopen(req_checks) as resp:
-            checks_data = json.loads(resp.read().decode("utf-8"))
-            check_runs = checks_data.get("check_runs", [])
+    while time.time() - start_time < 600:
+        time.sleep(12)
+        runs_data = gh_get(f"{api_base}/actions/runs?head_sha={pr_sha}")
+        wf_runs = runs_data.get("workflow_runs", [])
 
-        if not check_runs:
-            print("  Check-runs not triggered yet, waiting...")
+        if not wf_runs:
+            cr_data = gh_get(f"{api_base}/commits/{pr_sha}/check-runs")
+            check_runs = cr_data.get("check_runs", [])
+            if not check_runs:
+                print("  Waiting for GitHub Actions to trigger...")
+                continue
+            statuses = [c["status"] for c in check_runs]
+            conclusions = [c.get("conclusion") for c in check_runs]
+            names = [c["name"] for c in check_runs]
+            print(f"  Check-runs: {list(zip(names, statuses, conclusions))}")
+            if all(s == "completed" for s in statuses):
+                failed = [n for n, c in zip(names, conclusions) if c not in ["success", "neutral", "skipped"]]
+                if not failed:
+                    print(f"  ALL CHECK-RUNS PASSED (GREEN ✔) on PR #{pr_num}!")
+                    all_passed = True
+                    break
+                else:
+                    raise RuntimeError(f"Check-runs failed: {failed}")
             continue
 
-        statuses = [c["status"] for c in check_runs]
-        conclusions = [c.get("conclusion") for c in check_runs]
-        names = [c["name"] for c in check_runs]
+        all_wf_completed = True
+        has_failure = False
 
-        print(f"  Checks: {list(zip(names, statuses, conclusions))}")
+        for wf in wf_runs:
+            w_status = wf.get("status")
+            w_conc = wf.get("conclusion")
+            run_id = wf.get("id")
 
-        if all(s == "completed" for s in statuses):
-            failed = [n for n, c in zip(names, conclusions) if c not in ["success", "neutral", "skipped"]]
-            if not failed:
-                print(f"ALL CHECKS PASSED (GREEN ✔) on PR #{pr_num}!")
-                all_passed = True
-                break
+            jobs_info = gh_get(f"{api_base}/actions/runs/{run_id}/jobs")
+            job_summaries = [f"{j['name']} ({j['status']}/{j.get('conclusion')})" for j in jobs_info.get("jobs", [])]
+            print(f"  Run #{run_id} ({wf.get('name')}): status={w_status}, conclusion={w_conc} | Jobs: {', '.join(job_summaries)}")
+
+            if w_status != "completed":
+                all_wf_completed = False
             else:
-                print(f"ERROR: Check failed: {failed}")
-                raise RuntimeError(f"Check failed on PR #{pr_num}: {failed}")
+                if w_conc not in ["success", "neutral", "skipped"]:
+                    has_failure = True
+                    for j in jobs_info.get("jobs", []):
+                        if j.get("conclusion") not in ["success", "neutral", "skipped"]:
+                            print(f"    FAILED JOB: {j['name']}")
+                            for s in j.get("steps", []):
+                                if s.get("conclusion") not in ["success", "neutral", "skipped"]:
+                                    print(f"      FAILED STEP: {s['name']} -> {s.get('conclusion')}")
+
+        if has_failure:
+            raise RuntimeError(f"CI failed on PR #{pr_num} for commit {pr_sha[:7]}")
+
+        if all_wf_completed and len(wf_runs) > 0:
+            print(f"\n🎉 ALL GITHUB ACTIONS PASSED (100% GREEN ✔) on PR #{pr_num}!")
+            all_passed = True
+            break
 
     if not all_passed:
-        raise TimeoutError(f"Checks timed out on PR #{pr_num}")
+        raise TimeoutError(f"CI timed out waiting for PR #{pr_num}")
 
     time.sleep(5)
 
     # 6. Merge PR
     print(f"Merging PR #{pr_num} into main...")
-    merge_data = json.dumps({
+    merge_res = gh_put(f"{api_base}/pulls/{pr_num}/merge", {
         "commit_title": f"Merge pull request #{pr_num} from amrkh2004/{m['branch']}",
         "merge_method": "merge",
-    }).encode("utf-8")
+    })
+    print(f"PR #{pr_num} merged: {merge_res.get('merged')}")
 
-    req_merge = urllib.request.Request(f"{api_base}/pulls/{pr_num}/merge", data=merge_data, headers=headers, method="PUT")
-    with urllib.request.urlopen(req_merge) as resp:
-        m_res = json.loads(resp.read().decode("utf-8"))
-        print(f"Successfully Merged PR #{pr_num} (merged: {m_res.get('merged')})")
-
-    # 7. Pull merged main locally
+    # 7. Pull merged main
+    time.sleep(3)
     run_cmd("git checkout main")
     run_cmd("git pull portfolio main")
-    print(f"Local main updated with PR #{pr_num} merge.")
-    time.sleep(3)
+    print(f"Local main updated with PR #{pr_num}.")
+    time.sleep(5)
 
 print("\n=======================================================")
-print("ALL 5 MODULE PRs SUCCESSFULLY CREATED, VERIFIED 100% GREEN, AND MERGED!")
+print("ALL 5 MODULE PRs SUCCESSFULLY MERGED WITH 100% GREEN ✔ CHECKS!")
 print("=======================================================")

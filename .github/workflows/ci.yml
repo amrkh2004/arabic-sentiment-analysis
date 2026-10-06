@@ -48,16 +48,27 @@ jobs:
   docker-build:
     name: Docker Build & Smoke Test
     needs: lint-and-test
-    if: hashFiles('Dockerfile') != ''
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
 
+      - name: Check if Dockerfile exists
+        id: check_docker
+        run: |
+          if [ -f "Dockerfile" ]; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "No Dockerfile found; skipping Docker build and smoke test."
+          fi
+
       - name: Set up Docker Buildx
+        if: steps.check_docker.outputs.exists == 'true'
         uses: docker/setup-buildx-action@v3
 
       - name: Build Docker Image
+        if: steps.check_docker.outputs.exists == 'true'
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -67,6 +78,7 @@ jobs:
           load: true
 
       - name: Run Smoke Test on Container
+        if: steps.check_docker.outputs.exists == 'true'
         run: |
           docker run -d --name sentiment-api-smoke -p 8000:8000 arabic-sentiment-api:${{ github.sha }}
           echo "Waiting for container startup..."
@@ -94,23 +106,36 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Check if Dockerfile exists
+        id: check_docker
+        run: |
+          if [ -f "Dockerfile" ]; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "No Dockerfile found; skipping GHCR push."
+          fi
+
       - name: Set up Docker Buildx
+        if: steps.check_docker.outputs.exists == 'true'
         uses: docker/setup-buildx-action@v3
 
       - name: Log in to GitHub Container Registry
+        if: steps.check_docker.outputs.exists == 'true'
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
-          username: amrkh2004
+          username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and Push Docker Image
+        if: steps.check_docker.outputs.exists == 'true'
         uses: docker/build-push-action@v5
         with:
           context: .
           file: ./Dockerfile
           push: true
           tags: |
-            ghcr.io/amrkh2004/arabic-sentiment:latest
-            ghcr.io/amrkh2004/arabic-sentiment:${{ github.sha }}
+            ghcr.io/${{ github.repository }}:latest
+            ghcr.io/${{ github.repository }}:${{ github.sha }}
 
