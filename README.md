@@ -1,6 +1,6 @@
 # 🛒 Production Arabic Sentiment Analysis Pipeline (Track A)
 
-[![CI/CD Pipeline](https://github.com/amrkh2004/arabic_sentiment/actions/workflows/ci.yml/badge.svg)](https://github.com/amrkh2004/arabic_sentiment/actions/workflows/ci.yml)
+[![CI/CD Pipeline](https://github.com/amrkh2004/arabic-sentiment-analysis/actions/workflows/ci.yml/badge.svg)](https://github.com/amrkh2004/arabic-sentiment-analysis/actions/workflows/ci.yml)
 [![Python 3.11](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/downloads/)
 [![Docker Multi-Stage](https://img.shields.io/badge/docker-multi--stage-2496ED?logo=docker&logoColor=white)](Dockerfile)
 [![MLflow Tracking](https://img.shields.io/badge/MLflow-Tracking%20%26%20Registry-0194E2?logo=mlflow&logoColor=white)](https://mlflow.org/)
@@ -20,8 +20,8 @@ Run the complete production stack (API, Canary, Nginx Reverse Proxy, Prometheus,
 
 ```bash
 # 1. Clone repository
-git clone https://github.com/amrkh2004/arabic_sentiment.git
-cd arabic_sentiment
+git clone https://github.com/amrkh2004/arabic-sentiment-analysis.git
+cd arabic-sentiment-analysis
 
 # 2. Build & launch complete multi-service stack with Docker Compose
 docker compose up -d --build
