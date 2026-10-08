@@ -13,12 +13,13 @@ import requests
 
 
 def run_headless_load_test(
+    locustfile: str = "locustfile.py",
     host: str = "http://127.0.0.1:8000",
     users: int = 10,
     spawn_rate: int = 2,
     run_time: str = "10s",
 ):
-    print(f"Targeting host: {host}")
+    print(f"Targeting host: {host} with suite: {locustfile}")
     try:
         r = requests.get(f"{host}/health", timeout=3)
         if r.status_code != 200:
@@ -34,7 +35,7 @@ def run_headless_load_test(
         "-m",
         "locust",
         "-f",
-        "locustfile.py",
+        locustfile,
         "--headless",
         "-u",
         str(users),

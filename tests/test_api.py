@@ -29,6 +29,11 @@ def test_predict_single_positive():
     response = client.post("/predict", json=payload)
     assert response.status_code == 200
     data = response.json()
+    # Check root-level response fields (Rubric contract)
+    assert data["label"] == "positive"
+    assert data["confidence"] > 0.5
+    assert data["model_version"] == "student-int8-onnx-v1"
+    # Check nested results for backward compatibility
     assert len(data["results"]) == 1
     assert data["results"][0]["label"] == "positive"
     assert data["results"][0]["confidence"] > 0.5
@@ -40,9 +45,10 @@ def test_predict_single_negative():
     response = client.post("/predict", json=payload)
     assert response.status_code == 200
     data = response.json()
+    assert data["label"] == "negative"
+    assert data["confidence"] > 0.5
     assert len(data["results"]) == 1
     assert data["results"][0]["label"] == "negative"
-    assert data["results"][0]["confidence"] > 0.5
 
 
 def test_predict_batch():
@@ -52,6 +58,7 @@ def test_predict_batch():
     response = client.post("/predict", json=payload)
     assert response.status_code == 200
     data = response.json()
+    assert data["label"] in ["positive", "negative", "neutral"]
     assert len(data["results"]) == 3
     assert data["results"][0]["label"] == "positive"
     assert data["results"][1]["label"] == "negative"
@@ -60,12 +67,12 @@ def test_predict_batch():
 
 def test_predict_empty_payload():
     response = client.post("/predict", json={})
-    assert response.status_code in (400, 422)
+    assert response.status_code == 422
 
 
 def test_predict_whitespace_text():
     response = client.post("/predict", json={"text": "   "})
-    assert response.status_code in (400, 422)
+    assert response.status_code == 422
 
 
 def test_metrics_endpoint():
@@ -75,3 +82,4 @@ def test_metrics_endpoint():
     assert response.status_code in (200, 501)
     if response.status_code == 200:
         assert "arabic_sentiment_requests_total" in response.text or "# HELP" in response.text
+        assert "arabic_sentiment_psi_score" in response.text

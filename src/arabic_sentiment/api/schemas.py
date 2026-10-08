@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class PredictRequest(BaseModel):
@@ -39,6 +39,12 @@ class PredictRequest(BaseModel):
                     raise ValueError("All reviews in the batch must be non-empty strings.")
         return v
 
+    @model_validator(mode="after")
+    def validate_at_least_one_field(self) -> "PredictRequest":
+        if self.text is None and self.texts is None:
+            raise ValueError("Either 'text' or 'texts' field must be provided in the request payload.")
+        return self
+
 
 class SentimentPrediction(BaseModel):
     """Individual review sentiment prediction result."""
@@ -49,16 +55,23 @@ class SentimentPrediction(BaseModel):
     probabilities: dict[str, float] = Field(
         ..., description="Probability distribution across all 3 classes"
     )
+    model_version: str = Field(
+        default="student-int8-onnx-v1", description="Serving model version identifier"
+    )
 
 
 class PredictResponse(BaseModel):
     """Output payload from sentiment prediction endpoint."""
 
-    results: list[SentimentPrediction] = Field(..., description="List of predictions")
-    latency_ms: float = Field(..., ge=0.0, description="Inference latency in milliseconds")
+    label: str = Field(..., description="Primary predicted sentiment class (positive, neutral, negative)")
+    confidence: float = Field(..., ge=0.0, le=1.0, description="Calibrated confidence score")
     model_version: str = Field(
         default="student-int8-onnx-v1", description="Serving model version identifier"
     )
+    results: list[SentimentPrediction] = Field(
+        default_factory=list, description="List of predictions for all input texts"
+    )
+    latency_ms: float = Field(default=0.0, ge=0.0, description="Inference latency in milliseconds")
 
 
 class HealthResponse(BaseModel):

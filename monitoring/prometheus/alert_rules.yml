@@ -30,3 +30,13 @@ groups:
         annotations:
           summary: "API 5xx server errors exceeded 5%"
           description: "High error rate detected in inference service."
+
+      # Alert 4: Population Stability Index (PSI) Drift Alert (> 0.25)
+      - alert: HighModelDriftPSI
+        expr: arabic_sentiment_psi_score > 0.25
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Critical Model Drift: PSI > 0.25 on feature {{ $labels.feature }}"
+          description: "Feature distribution has significantly drifted (PSI = {{ $value }} > 0.25). Automated retraining required."

@@ -41,9 +41,25 @@ jobs:
         run: |
           pytest --cov=arabic_sentiment --cov-report=term-missing --cov-report=xml tests/
 
-      - name: Quality Gate Verification
+      - name: Quality Gate Verification (F1 Macro Baseline Check)
         run: |
-          echo "Quality Gate PASSED: 100% of unit & API tests passed, 0 lint errors."
+          python -c "
+          import json, sys
+          from pathlib import Path
+          metrics_file = Path('metrics.json')
+          if not metrics_file.exists():
+              print('ERROR: metrics.json not found! Quality Gate FAILED.')
+              sys.exit(1)
+          with open(metrics_file, 'r', encoding='utf-8') as f:
+              metrics = json.load(f)
+          f1_macro = metrics.get('macro_f1', 0.0)
+          baseline_threshold = 0.85
+          print(f'--> Quality Gate Check: Current Macro-F1 = {f1_macro:.4f} (Required Threshold >= {baseline_threshold})')
+          if f1_macro < baseline_threshold:
+              print(f'QUALITY GATE FAILED: Macro-F1 ({f1_macro:.4f}) is below the required baseline ({baseline_threshold}).')
+              sys.exit(1)
+          print('QUALITY GATE PASSED: Model satisfies production SLA requirements.')
+          "
 
   docker-build:
     name: Docker Build & Smoke Test

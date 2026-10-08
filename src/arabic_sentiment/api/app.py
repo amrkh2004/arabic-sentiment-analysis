@@ -113,15 +113,10 @@ def predict_sentiment(payload: PredictRequest) -> PredictResponse:
         raw_texts.append(payload.text)
     elif payload.texts is not None:
         raw_texts.extend(payload.texts)
-    else:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Either 'text' or 'texts' field must be provided in the request payload.",
-        )
 
     if not raw_texts:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Input review text cannot be empty."
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Input review text cannot be empty."
         )
 
     t0 = time.perf_counter()
@@ -134,15 +129,19 @@ def predict_sentiment(payload: PredictRequest) -> PredictResponse:
         for r in results:
             SENTIMENT_COUNT.labels(sentiment=r.label).inc()
 
+    primary_prediction = results[0]
+
     return PredictResponse(
+        label=primary_prediction.label,
+        confidence=primary_prediction.confidence,
+        model_version=primary_prediction.model_version,
         results=results,
         latency_ms=round(latency_ms, 2),
-        model_version="student-int8-onnx-v1",
     )
 
 
 try:
-    from prometheus_client import CONTENT_TYPE_LATEST, Counter, Histogram, generate_latest
+    from prometheus_client import CONTENT_TYPE_LATEST, Counter, Gauge, Histogram, generate_latest
 
     PROMETHEUS_AVAILABLE = True
 
@@ -161,6 +160,14 @@ try:
         "Total sentiment predictions classified by category",
         ["sentiment"],
     )
+    PSI_GAUGE = Gauge(
+        "arabic_sentiment_psi_score",
+        "Population Stability Index (PSI) drift score",
+        ["feature"],
+    )
+    # Initialize default PSI baseline metrics
+    PSI_GAUGE.labels(feature="text_length").set(0.04)
+    PSI_GAUGE.labels(feature="confidence_score").set(0.03)
 except ImportError:
     PROMETHEUS_AVAILABLE = False
 

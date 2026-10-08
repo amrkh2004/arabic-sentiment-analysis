@@ -49,6 +49,22 @@ def run_batch_scoring(
         f"Batch Scoring completed in {elapsed_s:.2f} seconds ({len(texts) / elapsed_s:.1f} samples/sec)"
     )
     print(f"Results saved successfully to: {out_file}")
+
+    print("\nTriggering automated PSI drift monitoring on scored batch...")
+    try:
+        from scripts.monitor_drift import run_drift_analysis
+
+        drift_report = run_drift_analysis(
+            prod_data_path=str(out_file),
+            psi_alert_threshold=0.25,
+        )
+        print(
+            f"Batch Drift Analysis complete: Text Length PSI={drift_report['features']['text_length']['psi']}, "
+            f"Confidence Score PSI={drift_report['features']['confidence_score']['psi']}"
+        )
+    except Exception as drift_err:
+        print(f"Notice on drift analysis pipeline: {drift_err}")
+
     print("=" * 60)
     return out_file
 

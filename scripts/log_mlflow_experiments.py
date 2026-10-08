@@ -14,7 +14,7 @@ import mlflow
 from mlflow.tracking import MlflowClient
 
 EXPERIMENT_NAME = "Arabic-Sentiment-Analysis"
-REGISTERED_MODEL_NAME = "ArabicSentiment-Production"
+REGISTERED_MODEL_NAME = "ArabicSentiment"
 
 RUNS_DATA = [
     {
@@ -223,7 +223,7 @@ def log_all_experiments():
 
     print(f"\nBest Model identified: Run ID {best_run_id} with Macro-F1 = {best_f1:.4f}")
 
-    # Register best model in Model Registry
+    # Register best model in Model Registry as ArabicSentiment
     try:
         model_uri = f"runs:/{best_run_id}/model"
         reg_model = mlflow.register_model(model_uri=model_uri, name=REGISTERED_MODEL_NAME)
@@ -231,7 +231,19 @@ def log_all_experiments():
             f"Successfully registered model '{REGISTERED_MODEL_NAME}' version {reg_model.version}"
         )
 
-        # Set tag and alias
+        # Transition model version to Production stage
+        try:
+            client.transition_model_version_stage(
+                name=REGISTERED_MODEL_NAME,
+                version=reg_model.version,
+                stage="Production",
+                archive_existing_versions=True,
+            )
+            print(f"Successfully promoted model '{REGISTERED_MODEL_NAME}' v{reg_model.version} to stage 'Production'.")
+        except Exception as stage_err:
+            print(f"Stage transition notice: {stage_err}")
+
+        # Set stage tag and champion alias for MLflow 2.x+ compatibility
         client.set_model_version_tag(
             name=REGISTERED_MODEL_NAME,
             version=reg_model.version,

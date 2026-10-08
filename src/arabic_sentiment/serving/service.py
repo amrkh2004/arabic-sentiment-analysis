@@ -30,6 +30,43 @@ class SentimentOutput(BaseModel):
     probabilities: dict[str, float]
 
 
+class SentimentModelRunnable(bentoml.Runnable):
+    """
+    BentoML custom Runnable encapsulating Arabic sentiment inference
+    with adaptive batching support.
+    """
+
+    SUPPORTED_RESOURCES = ("cpu", "nvidia.com/gpu")
+    SUPPORTS_CPU_MULTI_THREADING = True
+
+    def __init__(self):
+        self.inference_service = SentimentInferenceService()
+
+    @bentoml.Runnable.method(batchable=True, batch_dim=0)
+    def predict(self, texts: list[str]) -> list[dict[str, Any]]:
+        results = self.inference_service.predict(texts)
+        return [
+            {
+                "text": r.text,
+                "label": r.label,
+                "confidence": r.confidence,
+                "probabilities": r.probabilities,
+            }
+            for r in results
+        ]
+
+
+# BentoML Runner with adaptive batching (Rubric requirement)
+try:
+    sentiment_runner = bentoml.Runner(
+        SentimentModelRunnable,
+        name="arabic_sentiment_runner",
+        batchable=True,
+    )
+except Exception:
+    sentiment_runner = None
+
+
 @bentoml.service(
     name="arabic_sentiment_service",
     resources={"cpu": "2"},

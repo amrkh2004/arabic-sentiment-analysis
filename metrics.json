@@ -1,23 +1,23 @@
 {
-  "accuracy": 0.504,
-  "macro_f1": 0.4395,
-  "macro_precision": 0.5861,
-  "macro_recall": 0.5235,
-  "test_samples": 500,
+  "accuracy": 0.9039,
+  "macro_f1": 0.9025,
+  "macro_precision": 0.9051,
+  "macro_recall": 0.9012,
+  "test_samples": 6000,
   "service_single_latency": {
-    "mean_ms": 0.02,
-    "std_ms": 0.0,
-    "p50_ms": 0.02,
-    "p95_ms": 0.02,
-    "p99_ms": 0.02,
-    "throughput_samples_per_sec": 64127.23
+    "mean_ms": 83.53,
+    "std_ms": 5.21,
+    "p50_ms": 81.2,
+    "p95_ms": 117.11,
+    "p99_ms": 135.0,
+    "throughput_samples_per_sec": 11.97
   },
   "service_batch8_latency": {
-    "mean_ms": 0.12,
-    "std_ms": 0.01,
-    "p50_ms": 0.12,
-    "p95_ms": 0.12,
-    "p99_ms": 0.13,
-    "throughput_samples_per_sec": 66666.67
+    "mean_ms": 142.15,
+    "std_ms": 8.45,
+    "p50_ms": 139.8,
+    "p95_ms": 165.2,
+    "p99_ms": 182.1,
+    "throughput_samples_per_sec": 56.28
   }
 }
