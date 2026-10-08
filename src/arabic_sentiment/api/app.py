@@ -116,7 +116,8 @@ def predict_sentiment(payload: PredictRequest) -> PredictResponse:
 
     if not raw_texts:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Input review text cannot be empty."
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Input review text cannot be empty.",
         )
 
     t0 = time.perf_counter()

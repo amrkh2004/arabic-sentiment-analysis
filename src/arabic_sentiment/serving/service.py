@@ -63,7 +63,7 @@ try:
         name="arabic_sentiment_runner",
         batchable=True,
     )
-except Exception:
+except Exception:  # noqa: BLE001
     sentiment_runner = None
 
 

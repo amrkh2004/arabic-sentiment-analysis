@@ -13,7 +13,6 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-from scipy.spatial.distance import jensenshannon
 from scipy.stats import ks_2samp
 
 from arabic_sentiment.api.service import SentimentInferenceService
@@ -135,7 +134,11 @@ def run_drift_analysis(
 
         if "confidence_score" in prod_df.columns:
             prod_confs = prod_df["confidence_score"].to_numpy(dtype=float)
-            prod_labels = prod_df["predicted_label"].tolist() if "predicted_label" in prod_df.columns else ["positive"] * len(prod_texts)
+            prod_labels = (
+                prod_df["predicted_label"].tolist()
+                if "predicted_label" in prod_df.columns
+                else ["positive"] * len(prod_texts)
+            )
         else:
             prod_preds = service.predict(prod_texts)
             prod_confs = np.array([p.confidence for p in prod_preds], dtype=float)
@@ -177,9 +180,10 @@ def run_drift_analysis(
     # 4. Update Prometheus Gauge if available
     try:
         from arabic_sentiment.api.app import PSI_GAUGE
+
         PSI_GAUGE.labels(feature="text_length").set(round(psi_text_length, 4))
         PSI_GAUGE.labels(feature="confidence_score").set(round(psi_confidence, 4))
-    except Exception:
+    except Exception:  # noqa: BLE001, S110
         pass
 
     report = {
@@ -204,7 +208,9 @@ def run_drift_analysis(
                 "psi": round(float(psi_concept), 4),
                 "drift_detected": concept_drift,
                 "baseline_distribution": {l: round(float(p), 3) for l, p in zip(labels, ref_dist)},
-                "production_distribution": {l: round(float(p), 3) for l, p in zip(labels, prod_dist)},
+                "production_distribution": {
+                    l: round(float(p), 3) for l, p in zip(labels, prod_dist)
+                },
             },
         },
         "ks_test": {
@@ -220,9 +226,13 @@ def run_drift_analysis(
         from evidently.report import Report
 
         min_len = min(len(ref_lengths), len(ref_confs))
-        ref_ev_df = pd.DataFrame({"text_length": ref_lengths[:min_len], "confidence": ref_confs[:min_len]})
+        ref_ev_df = pd.DataFrame(
+            {"text_length": ref_lengths[:min_len], "confidence": ref_confs[:min_len]}
+        )
         min_p_len = min(len(prod_lengths), len(prod_confs))
-        prod_ev_df = pd.DataFrame({"text_length": prod_lengths[:min_p_len], "confidence": prod_confs[:min_p_len]})
+        prod_ev_df = pd.DataFrame(
+            {"text_length": prod_lengths[:min_p_len], "confidence": prod_confs[:min_p_len]}
+        )
 
         ev_report = Report(metrics=[DataDriftPreset()])
         ev_report.run(reference_data=ref_ev_df, current_data=prod_ev_df)
@@ -230,7 +240,7 @@ def run_drift_analysis(
         ev_report.save_html(str(ev_file))
         report["evidently_report_path"] = str(ev_file)
         print(f"[Evidently] Drift report generated: {ev_file}")
-    except Exception as ev_err:
+    except Exception as ev_err:  # noqa: BLE001
         print(f"[Note] Evidently report generation skipped or not installed: {ev_err}")
 
     # Save detailed JSON report
@@ -238,9 +248,15 @@ def run_drift_analysis(
     with open(report_file, "w", encoding="utf-8") as f:
         json.dump(report, f, indent=2, ensure_ascii=False)
 
-    print(f"\n[Feature Drift] Text Length PSI:      {psi_text_length:.4f} (Alert Threshold > {psi_alert_threshold})")
-    print(f"[Feature Drift] Confidence Score PSI: {psi_confidence:.4f} (Alert Threshold > {psi_alert_threshold})")
-    print(f"[Concept Drift] Class Shift PSI:      {psi_concept:.4f} (Alert Threshold > {psi_alert_threshold})")
+    print(
+        f"\n[Feature Drift] Text Length PSI:      {psi_text_length:.4f} (Alert Threshold > {psi_alert_threshold})"
+    )
+    print(
+        f"[Feature Drift] Confidence Score PSI: {psi_confidence:.4f} (Alert Threshold > {psi_alert_threshold})"
+    )
+    print(
+        f"[Concept Drift] Class Shift PSI:      {psi_concept:.4f} (Alert Threshold > {psi_alert_threshold})"
+    )
 
     if alert_triggered:
         alert_file = out_path / "drift_alert.json"

@@ -62,7 +62,7 @@ def run_batch_scoring(
             f"Batch Drift Analysis complete: Text Length PSI={drift_report['features']['text_length']['psi']}, "
             f"Confidence Score PSI={drift_report['features']['confidence_score']['psi']}"
         )
-    except Exception as drift_err:
+    except Exception as drift_err:  # noqa: BLE001
         print(f"Notice on drift analysis pipeline: {drift_err}")
 
     print("=" * 60)

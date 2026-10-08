@@ -239,8 +239,10 @@ def log_all_experiments():
                 stage="Production",
                 archive_existing_versions=True,
             )
-            print(f"Successfully promoted model '{REGISTERED_MODEL_NAME}' v{reg_model.version} to stage 'Production'.")
-        except Exception as stage_err:
+            print(
+                f"Successfully promoted model '{REGISTERED_MODEL_NAME}' v{reg_model.version} to stage 'Production'."
+            )
+        except Exception as stage_err:  # noqa: BLE001
             print(f"Stage transition notice: {stage_err}")
 
         # Set stage tag and champion alias for MLflow 2.x+ compatibility

@@ -42,7 +42,9 @@ class PredictRequest(BaseModel):
     @model_validator(mode="after")
     def validate_at_least_one_field(self) -> "PredictRequest":
         if self.text is None and self.texts is None:
-            raise ValueError("Either 'text' or 'texts' field must be provided in the request payload.")
+            raise ValueError(
+                "Either 'text' or 'texts' field must be provided in the request payload."
+            )
         return self
 
 
@@ -63,7 +65,9 @@ class SentimentPrediction(BaseModel):
 class PredictResponse(BaseModel):
     """Output payload from sentiment prediction endpoint."""
 
-    label: str = Field(..., description="Primary predicted sentiment class (positive, neutral, negative)")
+    label: str = Field(
+        ..., description="Primary predicted sentiment class (positive, neutral, negative)"
+    )
     confidence: float = Field(..., ge=0.0, le=1.0, description="Calibrated confidence score")
     model_version: str = Field(
         default="student-int8-onnx-v1", description="Serving model version identifier"
